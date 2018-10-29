@@ -1,0 +1,6 @@
+[package]
+name = "lineal"
+version = "0.1.0"
+authors = ["Min Kim <msk@dolbo.net>"]
+
+[dependencies]
