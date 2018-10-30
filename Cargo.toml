@@ -9,6 +9,7 @@ authors = ["Min Kim <msk@dolbo.net>"]
 criterion = "0.2"
 permutator = "0.3"
 rand = "0.6"
+rblas = "0.0"
 
 [[bench]]
 name = "vector"
