@@ -116,6 +116,10 @@ fn is_aligned<T>(ptr: *const T, size: usize) -> bool {
 
 #[cfg(test)]
 mod tests {
+    extern crate permutator;
+
+    use self::permutator::cartesian_product;
+
     #[test]
     fn sdot() {
         let x: Vec<f32> = vec![10., 15., -6., 3., 14., 7.];
@@ -125,16 +129,42 @@ mod tests {
 
     #[test]
     fn ddot() {
-        let x: Vec<f64> = vec![10., 15., -6., 3., 14., 7.];
-        let y: Vec<f64> = vec![8., -2., 4., 7., 6., -3.];
-        assert_eq!(super::ddot(&x, &y), 110f64);
+        let x = [10f64, 15f64, -6f64, 3f64, 14f64, 7f64];
+        let y = [8f64, -2f64, 4f64, 7f64, 6f64, -3f64];
+        shift_and_ddot(&x, &y, 110f64);
     }
 
     #[test]
     fn ddot_long() {
-        let x: Vec<f64> = vec![1., 1., 1., 1., 1., 1., 1., 1., 1., 1.];
-        let y: Vec<f64> = vec![2., 1., 1., 1., 1., 1., 1., 1., 3., 4.];
-        assert_eq!(super::ddot(&x, &y), 16f64);
-        assert_eq!(super::ddot(&x, &y[1..]), 14f64);
+        let x = [1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64];
+        let y = [2f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 1f64, 3f64, 4f64];
+        shift_and_ddot(&x, &y, 16f64);
+    }
+
+    fn copy(dst: &mut Vec<f64>, src: &[f64], offset: usize) {
+        assert!(offset < 4);
+        assert!(dst.len() >= src.len() + offset);
+        for mut d in dst[0..offset].iter_mut() {
+            *d = 0f64;
+        }
+        for (mut d, s) in dst[offset..].iter_mut().zip(src) {
+            *d = *s;
+        }
+    }
+
+    fn shift_and_ddot(x: &[f64], y: &[f64], expected: f64) {
+        let mut x_shifted = vec![0f64; x.len() + 3];
+        let mut y_shifted = vec![0f64; y.len() + 3];
+        cartesian_product(&[&[0, 1, 2, 3], &[0, 1, 2, 3]], |offsets| {
+            copy(&mut x_shifted, &x, *offsets[0]);
+            copy(&mut y_shifted, &y, *offsets[1]);
+            assert_eq!(
+                super::ddot(
+                    &x_shifted[*offsets[0]..offsets[0] + x.len()],
+                    &y_shifted[*offsets[1]..offsets[1] + y.len()]
+                ),
+                expected
+            );
+        });
     }
 }

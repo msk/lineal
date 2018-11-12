@@ -4,3 +4,6 @@ version = "0.1.0"
 authors = ["Min Kim <msk@dolbo.net>"]
 
 [dependencies]
+
+[dev-dependencies]
+permutator = "0.2"
