@@ -9,26 +9,26 @@ use std::ops::{Add, AddAssign, Mul};
 
 pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
     let len = cmp::min(x.len(), y.len());
-    let remainder = len % 8;
 
-    if cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+    if len >= 8 && cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+        let remainder = len % 8;
         let mut sum = if is_aligned(x.as_ptr(), 32)
             && is_aligned(y.as_ptr(), 32)
             && is_x86_feature_detected!("avx")
         {
             let xptr = x.as_ptr();
             let yptr = y.as_ptr();
-            let mut len = (len - remainder) as isize - 8;
+            let mut len = (len - remainder) as isize;
             let unpacked: (f64, f64, f64, f64) = unsafe {
                 let mut sum0 = x86::_mm256_setzero_pd();
                 let mut sum1 = x86::_mm256_setzero_pd();
                 while len != 0 {
-                    let x0 = x86::_mm256_load_pd(xptr.offset(len));
-                    let y0 = x86::_mm256_load_pd(yptr.offset(len));
+                    let x0 = x86::_mm256_load_pd(xptr.offset(len - 4));
+                    let y0 = x86::_mm256_load_pd(yptr.offset(len - 4));
                     let p0 = x86::_mm256_mul_pd(x0, y0);
                     sum0 = x86::_mm256_add_pd(sum0, p0);
-                    let x1 = x86::_mm256_load_pd(xptr.offset(len + 4));
-                    let y1 = x86::_mm256_load_pd(yptr.offset(len + 4));
+                    let x1 = x86::_mm256_load_pd(xptr.offset(len - 8));
+                    let y1 = x86::_mm256_load_pd(yptr.offset(len - 8));
                     let p1 = x86::_mm256_mul_pd(x1, y1);
                     sum1 = x86::_mm256_add_pd(sum1, p1);
                     len -= 8;
