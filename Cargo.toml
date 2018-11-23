@@ -6,4 +6,4 @@ authors = ["Min Kim <msk@dolbo.net>"]
 [dependencies]
 
 [dev-dependencies]
-permutator = "0.2"
+permutator = "0.3"
