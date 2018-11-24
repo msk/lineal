@@ -12,65 +12,66 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
     let len = cmp::min(x.len(), y.len());
 
     if len >= 8 {
-        let remainder = len % 8;
-        let mut sum = if is_aligned(x.as_ptr(), 32)
-            && is_aligned(y.as_ptr(), 32)
-            && is_x86_feature_detected!("avx")
-        {
-            let xptr = x.as_ptr();
-            let yptr = y.as_ptr();
-            let mut len = (len - remainder) as isize;
-            let unpacked: (f64, f64, f64, f64) = unsafe {
-                let mut sum0 = x86::_mm256_setzero_pd();
-                let mut sum1 = x86::_mm256_setzero_pd();
-                while len != 0 {
-                    let x0 = x86::_mm256_load_pd(xptr.offset(len - 4));
-                    let y0 = x86::_mm256_load_pd(yptr.offset(len - 4));
-                    let p0 = x86::_mm256_mul_pd(x0, y0);
-                    sum0 = x86::_mm256_add_pd(sum0, p0);
-                    let x1 = x86::_mm256_load_pd(xptr.offset(len - 8));
-                    let y1 = x86::_mm256_load_pd(yptr.offset(len - 8));
-                    let p1 = x86::_mm256_mul_pd(x1, y1);
-                    sum1 = x86::_mm256_add_pd(sum1, p1);
-                    len -= 8;
-                }
-                let sum = x86::_mm256_add_pd(sum0, sum1);
-                mem::transmute(sum)
-            };
-            unpacked.0 + unpacked.1 + unpacked.2 + unpacked.3
-        } else {
-            let mut sum0 = 0.;
-            let mut sum1 = 0.;
-            let mut sum2 = 0.;
-            let mut sum3 = 0.;
-            let mut sum4 = 0.;
-            let mut sum5 = 0.;
-            let mut sum6 = 0.;
-            let mut sum7 = 0.;
-            let mut x = &x[..len];
-            let mut y = &y[..len];
-            while x.len() >= 8 {
-                sum0 += x[0] * y[0];
-                sum1 += x[1] * y[1];
-                sum2 += x[2] * y[2];
-                sum3 += x[3] * y[3];
-                sum4 += x[4] * y[4];
-                sum5 += x[5] * y[5];
-                sum6 += x[6] * y[6];
-                sum7 += x[7] * y[7];
+        if is_x86_feature_detected!("avx") {
+            let remainder = len % 8;
+            let mut sum = if is_aligned(x.as_ptr(), 32) && is_aligned(y.as_ptr(), 32) {
+                let xptr = x.as_ptr();
+                let yptr = y.as_ptr();
+                let mut len = (len - remainder) as isize;
+                let unpacked: (f64, f64, f64, f64) = unsafe {
+                    let mut sum0 = x86::_mm256_setzero_pd();
+                    let mut sum1 = x86::_mm256_setzero_pd();
+                    while len != 0 {
+                        let x0 = x86::_mm256_load_pd(xptr.offset(len - 4));
+                        let y0 = x86::_mm256_load_pd(yptr.offset(len - 4));
+                        let p0 = x86::_mm256_mul_pd(x0, y0);
+                        sum0 = x86::_mm256_add_pd(sum0, p0);
+                        let x1 = x86::_mm256_load_pd(xptr.offset(len - 8));
+                        let y1 = x86::_mm256_load_pd(yptr.offset(len - 8));
+                        let p1 = x86::_mm256_mul_pd(x1, y1);
+                        sum1 = x86::_mm256_add_pd(sum1, p1);
+                        len -= 8;
+                    }
+                    let sum = x86::_mm256_add_pd(sum0, sum1);
+                    mem::transmute(sum)
+                };
+                unpacked.0 + unpacked.1 + unpacked.2 + unpacked.3
+            } else {
+                let mut sum0 = 0.;
+                let mut sum1 = 0.;
+                let mut sum2 = 0.;
+                let mut sum3 = 0.;
+                let mut sum4 = 0.;
+                let mut sum5 = 0.;
+                let mut sum6 = 0.;
+                let mut sum7 = 0.;
+                let mut x = &x[..len];
+                let mut y = &y[..len];
+                while x.len() >= 8 {
+                    sum0 += x[0] * y[0];
+                    sum1 += x[1] * y[1];
+                    sum2 += x[2] * y[2];
+                    sum3 += x[3] * y[3];
+                    sum4 += x[4] * y[4];
+                    sum5 += x[5] * y[5];
+                    sum6 += x[6] * y[6];
+                    sum7 += x[7] * y[7];
 
-                x = &x[8..];
-                y = &y[8..];
+                    x = &x[8..];
+                    y = &y[8..];
+                }
+                sum0 + sum1 + sum2 + sum3 + sum4 + sum5 + sum6 + sum7
+            };
+            for (a, b) in x[len - remainder..len]
+                .iter()
+                .zip(y[len - remainder..len].iter())
+            {
+                sum += a * b;
             }
-            sum0 + sum1 + sum2 + sum3 + sum4 + sum5 + sum6 + sum7
-        };
-        for (a, b) in x[len - remainder..len]
-            .iter()
-            .zip(y[len - remainder..len].iter())
-        {
-            sum += a * b;
+            sum
+        } else {
+            dot(x, y)
         }
-        sum
     } else {
         let mut sum = 0f64;
         for (&a, &b) in x.iter().zip(y) {
