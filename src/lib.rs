@@ -69,6 +69,8 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
                 sum += a * b;
             }
             sum
+        } else if is_x86_feature_detected!("sse2") {
+            dot(x, y)
         } else {
             dot(x, y)
         }
