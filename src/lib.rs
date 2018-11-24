@@ -72,7 +72,11 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
         }
         sum
     } else {
-        dot(x, y)
+        let mut sum = 0f64;
+        for (&a, &b) in x.iter().zip(y) {
+            sum += a * b;
+        }
+        sum
     }
 }
 
