@@ -7,10 +7,11 @@ use std::default::Default;
 use std::mem;
 use std::ops::{Add, AddAssign, Mul};
 
+#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
     let len = cmp::min(x.len(), y.len());
 
-    if len >= 8 && cfg!(any(target_arch = "x86", target_arch = "x86_64")) {
+    if len >= 8 {
         let remainder = len % 8;
         let mut sum = if is_aligned(x.as_ptr(), 32)
             && is_aligned(y.as_ptr(), 32)
@@ -73,6 +74,11 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
     } else {
         dot(x, y)
     }
+}
+
+#[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
+    dot(x, y)
 }
 
 pub fn dot<T>(x: &[T], y: &[T]) -> T
