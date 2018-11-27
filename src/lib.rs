@@ -14,130 +14,84 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
     if len >= 8 {
         if is_x86_feature_detected!("avx") {
             let remainder = len % 8;
-            let mut sum = if is_aligned(x.as_ptr(), 32) && is_aligned(y.as_ptr(), 32) {
-                let xptr = x.as_ptr();
-                let yptr = y.as_ptr();
-                let mut len = (len - remainder) as isize;
+            let xptr = x.as_ptr();
+            let yptr = y.as_ptr();
+            if is_aligned(xptr, 32) && is_aligned(yptr, 32) {
+                let mut remaining = (len - remainder) as isize;
                 let unpacked: (f64, f64, f64, f64) = unsafe {
                     let mut sum0 = x86::_mm256_setzero_pd();
                     let mut sum1 = x86::_mm256_setzero_pd();
-                    while len != 0 {
-                        let x0 = x86::_mm256_load_pd(xptr.offset(len - 4));
-                        let y0 = x86::_mm256_load_pd(yptr.offset(len - 4));
+                    while remaining != 0 {
+                        let x0 = x86::_mm256_load_pd(xptr.offset(remaining - 4));
+                        let y0 = x86::_mm256_load_pd(yptr.offset(remaining - 4));
                         let p0 = x86::_mm256_mul_pd(x0, y0);
                         sum0 = x86::_mm256_add_pd(sum0, p0);
-                        let x1 = x86::_mm256_load_pd(xptr.offset(len - 8));
-                        let y1 = x86::_mm256_load_pd(yptr.offset(len - 8));
+                        let x1 = x86::_mm256_load_pd(xptr.offset(remaining - 8));
+                        let y1 = x86::_mm256_load_pd(yptr.offset(remaining - 8));
                         let p1 = x86::_mm256_mul_pd(x1, y1);
                         sum1 = x86::_mm256_add_pd(sum1, p1);
-                        len -= 8;
+                        remaining -= 8;
                     }
                     let sum = x86::_mm256_add_pd(sum0, sum1);
                     mem::transmute(sum)
                 };
-                unpacked.0 + unpacked.1 + unpacked.2 + unpacked.3
-            } else {
-                let mut sum0 = 0.;
-                let mut sum1 = 0.;
-                let mut sum2 = 0.;
-                let mut sum3 = 0.;
-                let mut sum4 = 0.;
-                let mut sum5 = 0.;
-                let mut sum6 = 0.;
-                let mut sum7 = 0.;
-                let mut x = &x[..len];
-                let mut y = &y[..len];
-                while x.len() >= 8 {
-                    sum0 += x[0] * y[0];
-                    sum1 += x[1] * y[1];
-                    sum2 += x[2] * y[2];
-                    sum3 += x[3] * y[3];
-                    sum4 += x[4] * y[4];
-                    sum5 += x[5] * y[5];
-                    sum6 += x[6] * y[6];
-                    sum7 += x[7] * y[7];
-
-                    x = &x[8..];
-                    y = &y[8..];
+                let mut sum = unpacked.0 + unpacked.1 + unpacked.2 + unpacked.3;
+                for (a, b) in x[len - remainder..len]
+                    .iter()
+                    .zip(y[len - remainder..len].iter())
+                {
+                    sum += a * b;
                 }
-                sum0 + sum1 + sum2 + sum3 + sum4 + sum5 + sum6 + sum7
-            };
-            for (a, b) in x[len - remainder..len]
-                .iter()
-                .zip(y[len - remainder..len].iter())
-            {
-                sum += a * b;
+                sum
+            } else {
+                ddot_unaligned(x, y, len)
             }
-            sum
         } else if is_x86_feature_detected!("sse2") {
             let remainder = len % 8;
-            let mut sum = if is_aligned(x.as_ptr(), 16) && is_aligned(y.as_ptr(), 16) {
-                let xptr = x.as_ptr();
-                let yptr = y.as_ptr();
-                let mut len = (len - remainder) as isize;
+            let xptr = x.as_ptr();
+            let yptr = y.as_ptr();
+            if is_aligned(xptr, 16) && is_aligned(yptr, 16) {
+                let mut remaining = (len - remainder) as isize;
                 let unpacked: (f64, f64) = unsafe {
                     let mut sum0 = x86::_mm_setzero_pd();
                     let mut sum1 = x86::_mm_setzero_pd();
                     let mut sum2 = x86::_mm_setzero_pd();
                     let mut sum3 = x86::_mm_setzero_pd();
-                    while len != 0 {
-                        let x0 = x86::_mm_load_pd(xptr.offset(len - 2));
-                        let y0 = x86::_mm_load_pd(yptr.offset(len - 2));
+                    while remaining != 0 {
+                        let x0 = x86::_mm_load_pd(xptr.offset(remaining - 2));
+                        let y0 = x86::_mm_load_pd(yptr.offset(remaining - 2));
                         let p0 = x86::_mm_mul_pd(x0, y0);
                         sum0 = x86::_mm_add_pd(sum0, p0);
-                        let x1 = x86::_mm_load_pd(xptr.offset(len - 4));
-                        let y1 = x86::_mm_load_pd(yptr.offset(len - 4));
+                        let x1 = x86::_mm_load_pd(xptr.offset(remaining - 4));
+                        let y1 = x86::_mm_load_pd(yptr.offset(remaining - 4));
                         let p1 = x86::_mm_mul_pd(x1, y1);
                         sum1 = x86::_mm_add_pd(sum1, p1);
-                        let x2 = x86::_mm_load_pd(xptr.offset(len - 6));
-                        let y2 = x86::_mm_load_pd(yptr.offset(len - 6));
+                        let x2 = x86::_mm_load_pd(xptr.offset(remaining - 6));
+                        let y2 = x86::_mm_load_pd(yptr.offset(remaining - 6));
                         let p2 = x86::_mm_mul_pd(x2, y2);
                         sum2 = x86::_mm_add_pd(sum2, p2);
-                        let x3 = x86::_mm_load_pd(xptr.offset(len - 8));
-                        let y3 = x86::_mm_load_pd(yptr.offset(len - 8));
+                        let x3 = x86::_mm_load_pd(xptr.offset(remaining - 8));
+                        let y3 = x86::_mm_load_pd(yptr.offset(remaining - 8));
                         let p3 = x86::_mm_mul_pd(x3, y3);
                         sum3 = x86::_mm_add_pd(sum3, p3);
-                        len -= 8;
+                        remaining -= 8;
                     }
                     let sum01 = x86::_mm_add_pd(sum0, sum1);
                     let sum23 = x86::_mm_add_pd(sum2, sum3);
                     let sum = x86::_mm_add_pd(sum01, sum23);
                     mem::transmute(sum)
                 };
-                unpacked.0 + unpacked.1
-            } else {
-                let mut sum0 = 0.;
-                let mut sum1 = 0.;
-                let mut sum2 = 0.;
-                let mut sum3 = 0.;
-                let mut sum4 = 0.;
-                let mut sum5 = 0.;
-                let mut sum6 = 0.;
-                let mut sum7 = 0.;
-                let mut x = &x[..len];
-                let mut y = &y[..len];
-                while x.len() >= 8 {
-                    sum0 += x[0] * y[0];
-                    sum1 += x[1] * y[1];
-                    sum2 += x[2] * y[2];
-                    sum3 += x[3] * y[3];
-                    sum4 += x[4] * y[4];
-                    sum5 += x[5] * y[5];
-                    sum6 += x[6] * y[6];
-                    sum7 += x[7] * y[7];
-
-                    x = &x[8..];
-                    y = &y[8..];
+                let mut sum = unpacked.0 + unpacked.1;
+                for (a, b) in x[len - remainder..len]
+                    .iter()
+                    .zip(y[len - remainder..len].iter())
+                {
+                    sum += a * b;
                 }
-                sum0 + sum1 + sum2 + sum3 + sum4 + sum5 + sum6 + sum7
-            };
-            for (a, b) in x[len - remainder..len]
-                .iter()
-                .zip(y[len - remainder..len].iter())
-            {
-                sum += a * b;
+                sum
+            } else {
+                ddot_unaligned(x, y, len)
             }
-            sum
         } else {
             dot(x, y)
         }
@@ -180,6 +134,37 @@ where
         sum5 += x[5] * y[5];
         sum6 += x[6] * y[6];
         sum7 += x[7] * y[7];
+        x = &x[8..];
+        y = &y[8..];
+    }
+    let mut sum = sum0 + sum1 + sum2 + sum3 + sum4 + sum5 + sum6 + sum7;
+    for (&a, &b) in x.iter().zip(y) {
+        sum += a * b;
+    }
+    sum
+}
+
+fn ddot_unaligned(x: &[f64], y: &[f64], len: usize) -> f64 {
+    let mut sum0 = 0.;
+    let mut sum1 = 0.;
+    let mut sum2 = 0.;
+    let mut sum3 = 0.;
+    let mut sum4 = 0.;
+    let mut sum5 = 0.;
+    let mut sum6 = 0.;
+    let mut sum7 = 0.;
+    let mut x = &x[..len];
+    let mut y = &y[..len];
+    while x.len() >= 8 {
+        sum0 += x[0] * y[0];
+        sum1 += x[1] * y[1];
+        sum2 += x[2] * y[2];
+        sum3 += x[3] * y[3];
+        sum4 += x[4] * y[4];
+        sum5 += x[5] * y[5];
+        sum6 += x[6] * y[6];
+        sum7 += x[7] * y[7];
+
         x = &x[8..];
         y = &y[8..];
     }
