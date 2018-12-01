@@ -44,7 +44,7 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
                 }
                 sum
             } else {
-                ddot_unaligned(x, y, len)
+                dot_unaligned(x, y, len)
             }
         } else if is_x86_feature_detected!("sse2") {
             let remainder = len % 8;
@@ -90,7 +90,7 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
                 }
                 sum
             } else {
-                ddot_unaligned(x, y, len)
+                dot_unaligned(x, y, len)
             }
         } else {
             dot(x, y)
@@ -114,6 +114,13 @@ where
     T: Add<Output = T> + AddAssign + Mul<Output = T> + Copy + Default,
 {
     let len = cmp::min(x.len(), y.len());
+    dot_unaligned(x, y, len)
+}
+
+pub fn dot_unaligned<T>(x: &[T], y: &[T], len: usize) -> T
+where
+    T: Add<Output = T> + AddAssign + Mul<Output = T> + Copy + Default,
+{
     let mut x = &x[..len];
     let mut y = &y[..len];
 
