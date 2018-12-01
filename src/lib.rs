@@ -11,7 +11,7 @@ use std::ops::{Add, AddAssign, Mul};
 pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
     let len = cmp::min(x.len(), y.len());
 
-    if len >= 8 {
+    if len >= 8 && is_aligned(x.as_ptr(), 8) && is_aligned(y.as_ptr(), 8) {
         if is_x86_feature_detected!("avx") {
             let remainder = len % 8;
             let xptr = x.as_ptr();
@@ -47,11 +47,28 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
                 dot_unaligned(x, y, len)
             }
         } else if is_x86_feature_detected!("sse2") {
-            let remainder = len % 8;
-            let xptr = x.as_ptr();
-            let yptr = y.as_ptr();
-            if is_aligned(xptr, 16) && is_aligned(yptr, 16) {
-                let mut remaining = (len - remainder) as isize;
+            let mut remaining = len as isize;
+            let mut xptr = x.as_ptr();
+            let mut yptr = y.as_ptr();
+            let mut sum = 0f64;
+            if !is_aligned(yptr, 16) {
+                if remaining == 8 {
+                    let mut sum = 0f64;
+                    for (&a, &b) in x.iter().zip(y) {
+                        sum += a * b;
+                    }
+                    return sum;
+                }
+                unsafe {
+                    sum = *xptr * *yptr;
+                    xptr = xptr.offset(1);
+                    yptr = yptr.offset(1);
+                }
+                remaining -= 1;
+            };
+            if is_aligned(xptr, 16) {
+                let remainder = remaining as usize % 8;
+                remaining -= remainder as isize;
                 let unpacked: (f64, f64) = unsafe {
                     let mut sum0 = x86::_mm_setzero_pd();
                     let mut sum1 = x86::_mm_setzero_pd();
@@ -81,7 +98,7 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
                     let sum = x86::_mm_add_pd(sum01, sum23);
                     mem::transmute(sum)
                 };
-                let mut sum = unpacked.0 + unpacked.1;
+                sum += unpacked.0 + unpacked.1;
                 for (a, b) in x[len - remainder..len]
                     .iter()
                     .zip(y[len - remainder..len].iter())
