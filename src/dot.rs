@@ -66,14 +66,14 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
                 }
                 remaining -= 1;
             };
-            if is_aligned(xptr, 16) {
-                let remainder = remaining as usize % 8;
-                remaining -= remainder as isize;
-                let unpacked: (f64, f64) = unsafe {
-                    let mut sum0 = x86::_mm_setzero_pd();
-                    let mut sum1 = x86::_mm_setzero_pd();
-                    let mut sum2 = x86::_mm_setzero_pd();
-                    let mut sum3 = x86::_mm_setzero_pd();
+            let remainder = remaining as usize % 8;
+            remaining -= remainder as isize;
+            let unpacked: (f64, f64) = unsafe {
+                let mut sum0 = x86::_mm_setzero_pd();
+                let mut sum1 = x86::_mm_setzero_pd();
+                let mut sum2 = x86::_mm_setzero_pd();
+                let mut sum3 = x86::_mm_setzero_pd();
+                if is_aligned(xptr, 16) {
                     while remaining != 0 {
                         let x0 = x86::_mm_load_pd(xptr.offset(remaining - 2));
                         let y0 = x86::_mm_load_pd(yptr.offset(remaining - 2));
@@ -93,22 +93,40 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
                         sum3 = x86::_mm_add_pd(sum3, p3);
                         remaining -= 8;
                     }
-                    let sum01 = x86::_mm_add_pd(sum0, sum1);
-                    let sum23 = x86::_mm_add_pd(sum2, sum3);
-                    let sum = x86::_mm_add_pd(sum01, sum23);
-                    mem::transmute(sum)
-                };
-                sum += unpacked.0 + unpacked.1;
-                for (a, b) in x[len - remainder..len]
-                    .iter()
-                    .zip(y[len - remainder..len].iter())
-                {
-                    sum += a * b;
+                } else {
+                    while remaining != 0 {
+                        let x0 = x86::_mm_loadu_pd(xptr.offset(remaining - 2));
+                        let y0 = x86::_mm_load_pd(yptr.offset(remaining - 2));
+                        let p0 = x86::_mm_mul_pd(x0, y0);
+                        sum0 = x86::_mm_add_pd(sum0, p0);
+                        let x1 = x86::_mm_loadu_pd(xptr.offset(remaining - 4));
+                        let y1 = x86::_mm_load_pd(yptr.offset(remaining - 4));
+                        let p1 = x86::_mm_mul_pd(x1, y1);
+                        sum1 = x86::_mm_add_pd(sum1, p1);
+                        let x2 = x86::_mm_loadu_pd(xptr.offset(remaining - 6));
+                        let y2 = x86::_mm_load_pd(yptr.offset(remaining - 6));
+                        let p2 = x86::_mm_mul_pd(x2, y2);
+                        sum2 = x86::_mm_add_pd(sum2, p2);
+                        let x3 = x86::_mm_loadu_pd(xptr.offset(remaining - 8));
+                        let y3 = x86::_mm_load_pd(yptr.offset(remaining - 8));
+                        let p3 = x86::_mm_mul_pd(x3, y3);
+                        sum3 = x86::_mm_add_pd(sum3, p3);
+                        remaining -= 8;
+                    }
                 }
-                sum
-            } else {
-                dot_unaligned(x, y, len)
+                let sum01 = x86::_mm_add_pd(sum0, sum1);
+                let sum23 = x86::_mm_add_pd(sum2, sum3);
+                let sum = x86::_mm_add_pd(sum01, sum23);
+                mem::transmute(sum)
+            };
+            sum += unpacked.0 + unpacked.1;
+            for (a, b) in x[len - remainder..len]
+                .iter()
+                .zip(y[len - remainder..len].iter())
+            {
+                sum += a * b;
             }
+            sum
         } else {
             dot(x, y)
         }
