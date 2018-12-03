@@ -13,14 +13,35 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
 
     if len >= 8 && is_aligned(x.as_ptr(), 8) && is_aligned(y.as_ptr(), 8) {
         if is_x86_feature_detected!("avx") {
-            let remainder = len % 8;
-            let xptr = x.as_ptr();
-            let yptr = y.as_ptr();
-            if is_aligned(xptr, 32) && is_aligned(yptr, 32) {
-                let mut remaining = (len - remainder) as isize;
-                let unpacked: (f64, f64, f64, f64) = unsafe {
-                    let mut sum0 = x86::_mm256_setzero_pd();
-                    let mut sum1 = x86::_mm256_setzero_pd();
+            let mut remaining = len as isize;
+            let mut xptr = x.as_ptr();
+            let mut yptr = y.as_ptr();
+            let mut sum = 0f64;
+            unsafe {
+                while !is_aligned(yptr, 32) {
+                    sum += *xptr * *yptr;
+                    xptr = xptr.offset(1);
+                    yptr = yptr.offset(1);
+                    remaining -= 1;
+                }
+            }
+            if remaining < 8 {
+                unsafe {
+                    while remaining != 0 {
+                        sum += *xptr * *yptr;
+                        xptr = xptr.offset(1);
+                        yptr = yptr.offset(1);
+                        remaining -= 1;
+                    }
+                }
+                return sum;
+            }
+            let remainder = remaining as usize % 8;
+            remaining -= remainder as isize;
+            let unpacked: (f64, f64, f64, f64) = unsafe {
+                let mut sum0 = x86::_mm256_setzero_pd();
+                let mut sum1 = x86::_mm256_setzero_pd();
+                if is_aligned(xptr, 32) {
                     while remaining != 0 {
                         let x0 = x86::_mm256_load_pd(xptr.offset(remaining - 4));
                         let y0 = x86::_mm256_load_pd(yptr.offset(remaining - 4));
@@ -32,20 +53,30 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
                         sum1 = x86::_mm256_add_pd(sum1, p1);
                         remaining -= 8;
                     }
-                    let sum = x86::_mm256_add_pd(sum0, sum1);
-                    mem::transmute(sum)
-                };
-                let mut sum = unpacked.0 + unpacked.1 + unpacked.2 + unpacked.3;
-                for (a, b) in x[len - remainder..len]
-                    .iter()
-                    .zip(y[len - remainder..len].iter())
-                {
-                    sum += a * b;
+                } else {
+                    while remaining != 0 {
+                        let x0 = x86::_mm256_loadu_pd(xptr.offset(remaining - 4));
+                        let y0 = x86::_mm256_load_pd(yptr.offset(remaining - 4));
+                        let p0 = x86::_mm256_mul_pd(x0, y0);
+                        sum0 = x86::_mm256_add_pd(sum0, p0);
+                        let x1 = x86::_mm256_loadu_pd(xptr.offset(remaining - 8));
+                        let y1 = x86::_mm256_load_pd(yptr.offset(remaining - 8));
+                        let p1 = x86::_mm256_mul_pd(x1, y1);
+                        sum1 = x86::_mm256_add_pd(sum1, p1);
+                        remaining -= 8;
+                    }
                 }
-                sum
-            } else {
-                dot_unaligned(x, y, len)
+                let sum = x86::_mm256_add_pd(sum0, sum1);
+                mem::transmute(sum)
+            };
+            sum += unpacked.0 + unpacked.1 + unpacked.2 + unpacked.3;
+            for (a, b) in x[len - remainder..len]
+                .iter()
+                .zip(y[len - remainder..len].iter())
+            {
+                sum += a * b;
             }
+            sum
         } else if is_x86_feature_detected!("sse2") {
             let mut remaining = len as isize;
             let mut xptr = x.as_ptr();
