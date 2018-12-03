@@ -180,13 +180,6 @@ where
     T: Add<Output = T> + AddAssign + Mul<Output = T> + Copy + Default,
 {
     let len = cmp::min(x.len(), y.len());
-    dot_unaligned(x, y, len)
-}
-
-fn dot_unaligned<T>(x: &[T], y: &[T], len: usize) -> T
-where
-    T: Add<Output = T> + AddAssign + Mul<Output = T> + Copy + Default,
-{
     let mut x = &x[..len];
     let mut y = &y[..len];
 
