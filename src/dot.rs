@@ -11,14 +11,14 @@ use std::ops::{Add, AddAssign, Mul};
 pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
     let len = cmp::min(x.len(), y.len());
 
-    if len >= 8 && is_aligned(x.as_ptr(), 8) && is_aligned(y.as_ptr(), 8) {
+    if len >= 8 && is_aligned64(x.as_ptr()) && is_aligned64(y.as_ptr()) {
         if is_x86_feature_detected!("avx") {
             let mut remaining = len as isize;
             let mut xptr = x.as_ptr();
             let mut yptr = y.as_ptr();
             let mut sum = 0f64;
             unsafe {
-                while !is_aligned(yptr, 32) {
+                while !is_aligned256(yptr) {
                     sum += *xptr * *yptr;
                     xptr = xptr.offset(1);
                     yptr = yptr.offset(1);
@@ -41,7 +41,7 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
             let unpacked: (f64, f64, f64, f64) = unsafe {
                 let mut sum0 = x86::_mm256_setzero_pd();
                 let mut sum1 = x86::_mm256_setzero_pd();
-                if is_aligned(xptr, 32) {
+                if is_aligned256(xptr) {
                     while remaining != 0 {
                         let x0 = x86::_mm256_load_pd(xptr.offset(remaining - 4));
                         let y0 = x86::_mm256_load_pd(yptr.offset(remaining - 4));
@@ -82,7 +82,7 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
             let mut xptr = x.as_ptr();
             let mut yptr = y.as_ptr();
             let mut sum = 0f64;
-            if !is_aligned(yptr, 16) {
+            if !is_aligned128(yptr) {
                 if remaining == 8 {
                     let mut sum = 0f64;
                     for (&a, &b) in x.iter().zip(y) {
@@ -104,7 +104,7 @@ pub fn ddot(x: &[f64], y: &[f64]) -> f64 {
                 let mut sum1 = x86::_mm_setzero_pd();
                 let mut sum2 = x86::_mm_setzero_pd();
                 let mut sum3 = x86::_mm_setzero_pd();
-                if is_aligned(xptr, 16) {
+                if is_aligned128(xptr) {
                     while remaining != 0 {
                         let x0 = x86::_mm_load_pd(xptr.offset(remaining - 2));
                         let y0 = x86::_mm_load_pd(yptr.offset(remaining - 2));
@@ -210,8 +210,19 @@ where
     sum
 }
 
-fn is_aligned<T>(ptr: *const T, size: usize) -> bool {
-    ptr as usize % size == 0
+#[inline]
+fn is_aligned64<T>(ptr: *const T) -> bool {
+    ptr as usize & 0x07 == 0
+}
+
+#[inline]
+fn is_aligned128<T>(ptr: *const T) -> bool {
+    ptr as usize % 0x0f == 0
+}
+
+#[inline]
+fn is_aligned256<T>(ptr: *const T) -> bool {
+    ptr as usize & 0x1f == 0
 }
 
 #[cfg(test)]
