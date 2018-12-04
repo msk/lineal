@@ -217,7 +217,7 @@ fn is_aligned64<T>(ptr: *const T) -> bool {
 
 #[inline]
 fn is_aligned128<T>(ptr: *const T) -> bool {
-    ptr as usize % 0x0f == 0
+    ptr as usize & 0x0f == 0
 }
 
 #[inline]
