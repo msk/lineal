@@ -2,10 +2,12 @@
 extern crate criterion;
 extern crate lineal;
 extern crate rand;
+extern crate rand_isaac;
 
 use criterion::Criterion;
-use rand::distributions::Standard;
-use rand::{IsaacRng, Rng, SeedableRng};
+use rand::distributions::{Distribution, Standard};
+use rand::SeedableRng;
+use rand_isaac::IsaacRng;
 
 fn dot_product_rblas(x: &[f64], y: &[f64]) -> f64 {
     rblas::Dot::dot(x, y)
@@ -14,8 +16,14 @@ fn dot_product_rblas(x: &[f64], y: &[f64]) -> f64 {
 fn ddot(c: &mut Criterion) {
     let data_length = 1000;
     let mut rng: IsaacRng = SeedableRng::from_seed([0u8; 32]);
-    let x: Vec<f64> = rng.sample_iter(&Standard).take(data_length + 7).collect();
-    let y: Vec<f64> = rng.sample_iter(&Standard).take(data_length + 7).collect();
+    let x: Vec<f64> = Standard
+        .sample_iter(&mut rng)
+        .take(data_length + 7)
+        .collect();
+    let y: Vec<f64> = Standard
+        .sample_iter(&mut rng)
+        .take(data_length + 7)
+        .collect();
 
     for offset_x in 0..4 {
         for offset_y in 0..4 {
