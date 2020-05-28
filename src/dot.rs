@@ -255,10 +255,10 @@ mod tests {
     fn copy(dst: &mut Vec<f64>, src: &[f64], offset: usize) {
         assert!(offset < 4);
         assert!(dst.len() >= src.len() + offset);
-        for mut d in dst[0..offset].iter_mut() {
+        for d in dst[0..offset].iter_mut() {
             *d = 0f64;
         }
-        for (mut d, s) in dst[offset..].iter_mut().zip(src) {
+        for (d, s) in dst[offset..].iter_mut().zip(src) {
             *d = *s;
         }
     }
